@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>ひらがなファイト！</title>
+<style>
+:root{color-scheme:dark;--bg:#111;--panel:#202020;--line:#454545;--red:#ff5353;--blue:#65b8ff;--yellow:#ffd45b}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 50% 0,#303030,#111 55%);color:#fff;font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;min-height:100svh;padding:env(safe-area-inset-top) 14px env(safe-area-inset-bottom);display:flex;justify-content:center}
+main{width:min(760px,100%);padding:18px 0 26px}
+h1{text-align:center;font-size:clamp(27px,7vw,42px);letter-spacing:.08em;margin:8px 0 4px}
+.sub{text-align:center;color:#aaa;font-size:13px;margin:0 0 18px}
+.panel{background:#202020;border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 8px 28px #0005}
+.hidden{display:none!important}
+h2{font-size:18px;margin:0 0 12px}
+.characters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.character{border:2px solid #555;background:#292929;color:#fff;border-radius:14px;padding:12px 5px;min-height:125px;cursor:pointer;font:inherit}
+.character.selected{border-color:var(--yellow);background:#3b3420;box-shadow:0 0 0 2px #ffd45b22}
+.face{font-size:42px;display:block;margin-bottom:5px}
+.character strong{display:block;font-size:14px}
+.character small{color:#bbb;font-size:11px}
+button{font:inherit;cursor:pointer}
+.primary{width:100%;border:0;border-radius:14px;background:var(--yellow);color:#171717;font-weight:900;font-size:19px;padding:16px;margin-top:14px}
+.primary:active,.character:active,.cmd:active{transform:scale(.98)}
+.arena{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fighter{background:#292929;border-radius:14px;padding:12px;text-align:center;min-width:0}
+.fighter .face{font-size:48px}
+.fighter-name{font-weight:800}
+.hp-label{display:flex;justify-content:space-between;font-size:12px;color:#ddd;margin:9px 0 5px}
+.hp{height:12px;background:#555;border-radius:20px;overflow:hidden}
+.hp>i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff4747,#ff9b63);transition:width .2s}
+#cpuBar{background:linear-gradient(90deg,#55aaff,#8bdbff)}
+#status{text-align:center;font-weight:800;min-height:28px;margin:12px 0 6px;color:var(--yellow)}
+#log{height:82px;overflow:auto;background:#151515;border-radius:10px;padding:9px;font-size:12px;color:#ccc;line-height:1.6}
+.inputrow{display:flex;gap:8px;margin-top:12px}
+#command{min-width:0;flex:1;border:2px solid #666;background:#101010;color:#fff;border-radius:12px;padding:13px;font-size:18px}
+#command:focus{outline:2px solid var(--yellow);border-color:var(--yellow)}
+#send{border:0;border-radius:12px;background:#fff;color:#111;font-weight:900;padding:0 18px}
+.commands{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.cmd{border:1px solid #555;border-radius:9px;background:#292929;color:#fff;padding:7px 10px;font-size:13px}
+.skillrow{display:flex;align-items:center;gap:10px;margin-top:12px}
+#skill{border:1px solid #9b7c26;border-radius:10px;background:#403515;color:#ffe28a;padding:10px 12px;font-weight:800}
+#skill:disabled{opacity:.4}
+#skillInfo{font-size:12px;color:#bbb}
+.note{font-size:12px;color:#aaa;line-height:1.6;margin-top:12px}
+#result{text-align:center;font-size:24px;font-weight:900;margin:12px 0}
+@media(max-width:390px){.character{min-height:115px}.face{font-size:36px}.character strong{font-size:12px}.panel{padding:12px}}
+</style>
+</head>
+<body>
+<main>
+<h1>ひらがなファイト！</h1>
+<p class="sub">ことばを入力して、相手をたおせ。</p>
+
+<section id="selectScreen" class="panel">
+<h2>キャラクターを選んでね</h2>
+<div class="characters">
+<button class="character selected" data-char="dad" type="button"><span class="face">👨‍🦲</span><strong>ハゲのオヤジ</strong><small>ピカピカビーム</small></button>
+<button class="character" data-char="gyaru" type="button"><span class="face">💅</span><strong>平成のギャル</strong><small>鬼メイク</small></button>
+<button class="character" data-char="baby" type="button"><span class="face">👶</span><strong>赤ちゃん</strong><small>超・夜泣き</small></button>
+</div>
+<button id="startBtn" class="primary" type="button">たいせんスタート</button>
+<p class="note">操作：ひらがなで「ぱんち」「きっく」「ふっく」「けん」「まえ」「うしろ」と入力して送信。攻撃は最大3連続、その後2秒間のクールダウン。</p>
+</section>
+
+<section id="gameScreen" class="hidden">
+<div class="panel">
+<div class="arena">
+<div class="fighter"><span id="playerFace" class="face">👨‍🦲</span><div id="playerName" class="fighter-name">ハゲのオヤジ</div><div class="hp-label"><span>PLAYER</span><span id="playerHpText">100 / 100</span></div><div class="hp"><i id="playerBar"></i></div></div>
+<div class="fighter"><span class="face">🤖</span><div class="fighter-name">CPU</div><div class="hp-label"><span>CPU</span><span id="cpuHpText">100 / 100</span></div><div class="hp"><i id="cpuBar"></i></div></div>
+</div>
+<div id="status" aria-live="polite">たいせん開始！</div>
+<div id="result"></div>
+<div id="log" aria-live="polite">バトルログがここに表示される。</div>
+<div class="inputrow"><input id="command" type="text" inputmode="text" autocomplete="off" autocapitalize="off" placeholder="ひらがなで入力…" aria-label="コマンド入力"><button id="send" type="button">送信</button></div>
+<div class="commands">
+<button class="cmd" data-cmd="ぱんち">ぱんち</button><button class="cmd" data-cmd="きっく">きっく</button><button class="cmd" data-cmd="ふっく">ふっく</button><button class="cmd" data-cmd="けん">けん</button><button class="cmd" data-cmd="まえ">まえ</button><button class="cmd" data-cmd="うしろ">うしろ</button>
+</div>
+<div class="skillrow"><button id="skill" type="button" disabled>特性を使う（5秒後）</button><span id="skillInfo">特性は準備中</span></div>
+</div>
+</section>
+</main>
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const chars={
+ dad:{name:'ハゲのオヤジ',face:'👨‍🦲',skill:'ハゲのピカピカビーム'},
+ gyaru:{name:'平成のギャル',face:'💅',skill:'ギャルの鬼メイク'},
+ baby:{name:'赤ちゃん',face:'👶',skill:'超・夜泣き'}
+};
+let selected='dad',running=false,ended=false,pHP=100,cHP=100,streak=0,lockedUntil=0,skillReadyAt=0,skillUsed=false,stunnedUntil=0,buffUntil=0;
+let cpuTimer=null,skillTimer=null;
+document.querySelectorAll('.character').forEach(btn=>btn.addEventListener('click',()=>{
+ if(running)return;
+ selected=btn.dataset.char;
+ document.querySelectorAll('.character').forEach(b=>b.classList.toggle('selected',b===btn));
+}));
+function log(msg){
+ const el=$('log'); const line=document.createElement('div');line.textContent=msg;el.appendChild(line);el.scrollTop=el.scrollHeight;
+}
+function hud(){
+ $('playerHpText').textContent=pHP+' / 100';$('cpuHpText').textContent=cHP+' / 100';
+ $('playerBar').style.width=pHP+'%';$('cpuBar').style.width=cHP+'%';
+}
+function status(msg){$('status').textContent=msg}
+function finish(won){
+ running=false;ended=true;clearTimeout(cpuTimer);
+ $('result').textContent=won?'🏆 YOU WIN！':'💥 YOU LOSE…';
+ status('たいせん終了');
+ $('command').disabled=true;$('send').disabled=true;$('skill').disabled=true;
+ $('startBtn').textContent='もう一度たいせん';
+ $('selectScreen').classList.remove('hidden');$('gameScreen').classList.add('hidden');
+}
+function start(){
+ try{
+  clearTimeout(cpuTimer);clearInterval(skillTimer);
+  pHP=100;cHP=100;streak=0;lockedUntil=0;skillUsed=false;
+  const now=Date.now();skillReadyAt=now+5000;stunnedUntil=0;buffUntil=0;
+  running=true;ended=false;
+  $('selectScreen').classList.add('hidden');$('gameScreen').classList.remove('hidden');
+  $('playerFace').textContent=chars[selected].face;$('playerName').textContent=chars[selected].name;
+  $('command').disabled=false;$('send').disabled=false;$('command').value='';$('result').textContent='';
+  $('log').textContent='';log('バトル開始！ '+chars[selected].name+' が登場！');
+  $('skill').textContent=chars[selected].skill;$('skill').disabled=true;
+  $('skillInfo').textContent='あと5秒で使用可能';
+  status('コマンドを入力！');hud();
+  skillTimer=setInterval(()=>{
+   if(!running){clearInterval(skillTimer);return}
+   const remain=Math.max(0,Math.ceil((skillReadyAt-Date.now())/1000));
+   $('skill').disabled=skillUsed||remain>0;
+   $('skillInfo').textContent=skillUsed?'使用済み':remain>0?'あと'+remain+'秒で使用可能':'特性を使える！';
+  },150);
+  cpuTurn();
+  setTimeout(()=>$('command').focus(),100);
+ }catch(e){status('開始エラー：'+e.message);console.error(e)}
+}
+function cpuTurn(){
+ if(!running)return;
+ cpuTimer=setTimeout(()=>{
+  if(!running)return;
+  if(Date.now()<stunnedUntil){log('CPUはビームでひるんでいる！');cpuTurn();return}
+  const damage=6+Math.floor(Math.random()*5);pHP=Math.max(0,pHP-damage);
+  log('CPUの攻撃！ '+damage+' ダメージ');
+  hud();if(pHP<=0){finish(false);return}cpuTurn();
+ },2100+Math.random()*900);
+}
+function attack(cmd){
+ if(!running)return;
+ const now=Date.now();
+ if(now<lockedUntil){status('クールダウン中！');return}
+ if(!['ぱんち','きっく','ふっく','けん'].includes(cmd)){
+  if(cmd==='まえ'){status('前に出た！');log('前進した。');return}
+  if(cmd==='うしろ'){status('後ろに下がった！');log('後退した。');return}
+  status('そのコマンドは使えないよ');return;
+ }
+ let dmg=cmd==='ぱんち'?8:cmd==='きっく'?11:cmd==='ふっく'?13:17;
+ if(selected==='gyaru'&&now<buffUntil)dmg=Math.round(dmg*1.5);
+ if(selected==='baby'&&babyNext){dmg*=3;babyNext=false;log('夜泣きパワー発動！')}
+ cHP=Math.max(0,cHP-dmg);streak++;
+ log(cmd+'！ CPUに'+dmg+'ダメージ');
+ hud();status(streak>=3?'3連続攻撃！2秒クールダウン':'ヒット！ '+streak+'/3');
+ if(cHP<=0){finish(true);return}
+ if(streak>=3){streak=0;lockedUntil=Date.now()+2000;status('攻撃しすぎ！2秒待機');}
+}
+let babyNext=false;
+function submit(){
+ if(!running)return;
+ const cmd=$('command').value.trim().replace(/\s/g,'');$('command').value='';
+ if(!cmd)return;
+ attack(cmd);$('command').focus();
+}
+$('startBtn').addEventListener('click',()=>{
+ if(running)return;
+ start();
+});
+$('send').addEventListener('click',submit);
+$('command').addEventListener('keydown',e=>{
+ if(e.key==='Enter'&&!e.isComposing){e.preventDefault();submit()}
+});
+document.querySelectorAll('.cmd').forEach(b=>b.addEventListener('click',()=>{if(!running)return;attack(b.dataset.cmd)}));
+$('skill').addEventListener('click',()=>{
+ if(!running||skillUsed||Date.now()<skillReadyAt)return;
+ skillUsed=true;$('skill').disabled=true;
+ if(selected==='dad'){stunnedUntil=Date.now()+1500;log('ハゲのピカピカビーム！CPUが1.5秒ひるんだ！')}
+ if(selected==='gyaru'){buffUntil=Date.now()+5000;log('ギャルの鬼メイク！5秒間、攻撃力1.5倍！')}
+ if(selected==='baby'){babyNext=true;log('超・夜泣き！次の攻撃が3倍ダメージ！')}
+ status(chars[selected].skill+' 発動！');
+});
+})();
+</script>
+</body>
+</html>
